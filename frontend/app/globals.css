@@ -1,0 +1,210 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 210 40% 98%; /* gray-50 */
+    --foreground: 222 47% 11%;
+    --muted: 210 40% 96%;
+    --muted-foreground: 215 16% 47%;
+    --primary: 221 83% 53%;    /* blue-600 */
+    --primary-foreground: 0 0% 100%;
+    --accent: 210 40% 96%;
+    --accent-foreground: 222 47% 11%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 214 32% 91%;
+    --ring: 221 83% 53%;
+  }
+
+  .dark {
+    --background: 224 71% 4%; /* very dark medical slate blue */
+    --foreground: 210 40% 98%;
+    --muted: 222 47% 10%;
+    --muted-foreground: 215 20% 65%;
+    --primary: 217 91% 60%;
+    --primary-foreground: 222 47% 11%;
+    --accent: 217 30% 12%;
+    --accent-foreground: 210 40% 98%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 222 47% 12%;
+    --ring: 221 83% 60%;
+  }
+
+  * { border-color: hsl(var(--border)); }
+  
+  body {
+    background-color: hsl(var(--background));
+    color: hsl(var(--foreground));
+    font-size: 16px;
+    line-height: 1.7;
+    position: relative;
+    overflow-x: hidden;
+  }
+
+  /* Paper grain texture */
+  body::before {
+    content: "";
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    pointer-events: none;
+    z-index: 50;
+    opacity: 0.045;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+  }
+
+  /* Headings tight tracking */
+  h1, h2, h3, h4, h5, h6 {
+    letter-spacing: -0.025em;
+  }
+
+  /* Tabular numbers for stats */
+  .tabular-nums {
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* WCAG: visible focus ring on all interactive elements */
+  :focus-visible {
+    outline: 2px solid hsl(var(--ring));
+    outline-offset: 2px;
+  }
+}
+
+@layer utilities {
+  /* Faint clinical workspace grid background */
+  .bg-clinical-grid {
+    background-size: 40px 40px;
+    background-image: 
+      linear-gradient(to right, rgba(59, 130, 246, 0.03) 1px, transparent 1px),
+      linear-gradient(to bottom, rgba(59, 130, 246, 0.03) 1px, transparent 1px);
+  }
+
+  /* Subtle Indonesian Batik line pattern */
+  .bg-batik-pattern {
+    background-color: transparent;
+    background-image: url("data:image/svg+xml,%3Csvg width='80' height='80' viewBox='0 0 80 80' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' stroke='%233b82f6' stroke-width='0.4' stroke-opacity='0.08'%3E%3Cpath d='M0 40 L40 0 L80 40 L40 80 Z'/%3E%3Ccircle cx='40' cy='40' r='10'/%3E%3Ccircle cx='40' cy='40' r='20' stroke-dasharray='2,2'/%3E%3Cpath d='M20 20 L60 60 M20 60 L60 20'/%3E%3Cpath d='M0 0 L80 80 M0 80 L80 0' stroke-dasharray='1,3'/%3E%3C/g%3E%3C/svg%3E");
+  }
+
+  /* Glowing green BCI signal active pulse */
+  .pulse-active-green {
+    box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.5);
+    animation: activePulse 2s infinite;
+  }
+
+  @keyframes activePulse {
+    0% {
+      transform: scale(0.95);
+      box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.6);
+    }
+    70% {
+      transform: scale(1.05);
+      box-shadow: 0 0 0 8px rgba(34, 197, 94, 0);
+    }
+    100% {
+      transform: scale(0.95);
+      box-shadow: 0 0 0 0 rgba(34, 197, 94, 0);
+    }
+  }
+
+  /* Glowing blue neuro pulse for nodes */
+  .pulse-node-blue {
+    animation: nodePulse 3s infinite ease-in-out;
+  }
+
+  @keyframes nodePulse {
+    0%, 100% {
+      opacity: 0.4;
+      transform: scale(0.9);
+    }
+    50% {
+      opacity: 1;
+      transform: scale(1.2);
+    }
+  }
+
+  /* Custom premium card interaction - clinical standard */
+  .clinical-card {
+    background: #ffffff;
+    border: 1px solid rgba(226, 232, 240, 0.8);
+    border-radius: 1rem;
+    box-shadow: 0 1px 3px rgba(15, 23, 42, 0.03), 0 1px 2px rgba(15, 23, 42, 0.02);
+    transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .clinical-card:hover {
+    transform: translateY(-2px);
+    border-color: rgba(59, 130, 246, 0.3);
+    box-shadow: 0 10px 25px -5px rgba(59, 130, 246, 0.05), 0 8px 10px -6px rgba(59, 130, 246, 0.05);
+  }
+
+  .dark .clinical-card {
+    background: rgba(15, 23, 42, 0.45);
+    border-color: rgba(30, 41, 59, 0.7);
+  }
+
+  .dark .clinical-card:hover {
+    border-color: rgba(59, 130, 246, 0.5);
+    box-shadow: 0 10px 25px -5px rgba(59, 130, 246, 0.15), 0 8px 10px -6px rgba(59, 130, 246, 0.15);
+  }
+
+  /* Thin red horizontal rule - Stroke awareness red ribbon nod */
+  .red-ribbon-divider {
+    height: 1px;
+    background: linear-gradient(to right, rgba(239, 68, 68, 0) 0%, rgba(239, 68, 68, 0.8) 20%, rgba(239, 68, 68, 0.8) 80%, rgba(239, 68, 68, 0) 100%);
+    width: 100%;
+    margin: 2rem 0;
+  }
+
+  /* Voice waveform simulation - dynamic */
+  .waveform-bar {
+    width: 3px;
+    height: 12px;
+    background-color: #3b82f6;
+    border-radius: 99px;
+    animation: bounceWaveform 1.2s infinite ease-in-out alternate;
+  }
+
+  .waveform-bar:nth-child(2) { animation-delay: 0.15s; height: 20px; }
+  .waveform-bar:nth-child(3) { animation-delay: 0.3s; height: 16px; }
+  .waveform-bar:nth-child(4) { animation-delay: 0.45s; height: 24px; }
+  .waveform-bar:nth-child(5) { animation-delay: 0.6s; height: 10px; }
+
+  @keyframes bounceWaveform {
+    0% { transform: scaleY(0.4); }
+    100% { transform: scaleY(1.2); }
+  }
+
+  /* Slow float for 3D/abstract elements */
+  .float-slow {
+    animation: floatAnim 8s infinite ease-in-out;
+  }
+
+  @keyframes floatAnim {
+    0%, 100% { transform: translateY(0) rotate(0deg); }
+    50% { transform: translateY(-12px) rotate(1.5deg); }
+  }
+
+  /* Customized sleek clinical scrollbar */
+  .custom-scrollbar::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    background: rgba(59, 130, 246, 0.15);
+    border-radius: 99px;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: rgba(59, 130, 246, 0.3);
+  }
+}
