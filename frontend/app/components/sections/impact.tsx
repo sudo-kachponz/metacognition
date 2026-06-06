@@ -49,7 +49,7 @@ export default function Impact() {
                 "75 trials per class per session — exceeding 95% statistical power from day one."
               </p>
               <footer className="mt-3 text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                — NeuroPidjar Calibration Protocol v1.0
+                — Synaptic Calibration Protocol v1.0
               </footer>
             </blockquote>
 

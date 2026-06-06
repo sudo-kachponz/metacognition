@@ -43,8 +43,20 @@ export default function Navbar() {
 
   return (
     <nav className="sticky top-0 z-40 w-full border-b border-gray-200 bg-white/80 backdrop-blur-md dark:border-gray-800 dark:bg-gray-950/80 transition-colors duration-200">
-      {/* Stroke Awareness Red Ribbon Motif (Thin line) */}
-      <div className="h-[4px] w-full bg-red-500" />
+      <style dangerouslySetInnerHTML={{ __html: `
+        @keyframes flow-rgb-nav {
+          0% { background-position: 0% 0%; }
+          100% { background-position: 200% 0%; }
+        }
+      ` }} />
+      {/* Modern Scientific Thin RGB Line */}
+      <div 
+        className="h-[1.5px] w-full bg-gradient-to-r from-red-500 via-green-500 to-blue-500"
+        style={{
+          backgroundSize: '200% 100%',
+          animation: 'flow-rgb-nav 5s linear infinite',
+        }}
+      />
       
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="flex h-16 items-center justify-between">
@@ -58,11 +70,31 @@ export default function Navbar() {
               }}
               className="flex items-center gap-2 font-bold text-blue-900 dark:text-blue-50 group"
             >
-              <div className="rounded-lg bg-blue-50 dark:bg-blue-950/80 p-1.5 text-blue-600 dark:text-blue-400 transition-colors group-hover:bg-blue-100 dark:group-hover:bg-blue-900/60">
-                <BrainCircuit className="h-6 w-6" />
+              <div className="rounded-lg bg-blue-50/50 dark:bg-blue-950/40 p-1.5 transition-colors group-hover:bg-blue-100/50 dark:group-hover:bg-blue-900/40 flex items-center justify-center">
+                <svg 
+                  viewBox="0 0 24 24" 
+                  className="h-6 w-6 fill-none transition-transform duration-300 group-hover:scale-105" 
+                  strokeWidth="2.5" 
+                  strokeLinecap="round" 
+                  strokeLinejoin="round"
+                >
+                  {/* Presynaptic node - Red */}
+                  <path d="M2 12h5" className="stroke-red-500 dark:stroke-red-400" />
+                  <circle cx="8" cy="12" r="2" className="stroke-red-500 dark:stroke-red-400 fill-red-500/20" />
+
+                  {/* Postsynaptic node - Blue */}
+                  <circle cx="16" cy="12" r="2" className="stroke-blue-500 dark:stroke-blue-400 fill-blue-500/20" />
+                  <path d="M17 12h5" className="stroke-blue-500 dark:stroke-blue-400" />
+
+                  {/* Synaptic cleft signals - Green */}
+                  <circle cx="12" cy="12" r="1.5" className="fill-green-500 dark:fill-green-400 stroke-none animate-ping" style={{ animationDuration: '1.8s' }} />
+                  <circle cx="12" cy="12" r="1" className="fill-green-500 dark:fill-green-400 stroke-none animate-pulse" />
+                  <path d="M11.5 9.5a1.5 1.5 0 0 1 1 0" className="stroke-green-500 dark:stroke-green-400 animate-pulse" />
+                  <path d="M11.5 14.5a1.5 1.5 0 0 0 1 0" className="stroke-green-500 dark:stroke-green-400 animate-pulse" />
+                </svg>
               </div>
-              <span className="text-xl font-bold tracking-tight text-blue-900 dark:text-white">
-                Neuro<span className="text-blue-600 dark:text-blue-400">Pidjar</span>
+              <span className="text-lg font-bold tracking-widest uppercase font-orbitron text-blue-950 dark:text-blue-100 group-hover:text-blue-900 dark:group-hover:text-blue-200 transition-colors">
+                Synaptic
               </span>
             </Link>
           </div>

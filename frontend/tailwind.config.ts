@@ -53,6 +53,7 @@ const config: Config = {
       fontFamily: {
         sans: ['var(--font-inter)', 'sans-serif'],
         serif: ['"Times New Roman"', 'Times', 'Georgia', 'serif'],
+        orbitron: ['var(--font-orbitron)', 'sans-serif'],
       },
       borderRadius: { lg: '0.5rem', md: '0.375rem', sm: '0.25rem' },
     },

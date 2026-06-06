@@ -272,6 +272,17 @@ export default function BrainCanvas() {
   } | null>(null);
 
   const [tooltip, setTooltip] = useState<Tooltip>({ visible: false, x: 0, y: 0, region: null });
+  const [activeLine, setActiveLine] = useState(5);
+
+  useEffect(() => {
+    const steps = [5, 8, 11, 12, 15, 16, 19];
+    let stepIdx = 0;
+    const interval = setInterval(() => {
+      stepIdx = (stepIdx + 1) % steps.length;
+      setActiveLine(steps[stepIdx]);
+    }, 2500);
+    return () => clearInterval(interval);
+  }, []);
 
   const initScene = useCallback(() => {
     if (!containerRef.current) return;
@@ -675,14 +686,15 @@ export default function BrainCanvas() {
     top: string;
     left?: string;
     right?: string;
+    delay: number;
   }
 
   const waveBadges: WaveBadge[] = [
-    { letter: 'δ', label: 'Delta', hz: '1–4 Hz', color: '#ef4444', top: '12%', left: '5%' },
-    { letter: 'θ', label: 'Theta', hz: '4–8 Hz', color: '#f59e0b', top: '72%', left: '12%' },
-    { letter: 'α', label: 'Alpha', hz: '8–13 Hz', color: '#22c55e', top: '15%', right: '4%' },
-    { letter: 'β', label: 'Beta', hz: '13–30 Hz', color: '#06b6d4', top: '8%', left: '42%' },
-    { letter: 'γ', label: 'Gamma', hz: '30–100 Hz', color: '#6366f1', top: '78%', right: '10%' },
+    { letter: 'δ', label: 'Delta', hz: '1–4 Hz', color: '#ef4444', top: '12%', left: '5%', delay: 0 },
+    { letter: 'θ', label: 'Theta', hz: '4–8 Hz', color: '#f59e0b', top: '72%', left: '12%', delay: 1.2 },
+    { letter: 'α', label: 'Alpha', hz: '8–13 Hz', color: '#22c55e', top: '15%', right: '4%', delay: 0.6 },
+    { letter: 'β', label: 'Beta', hz: '13–30 Hz', color: '#06b6d4', top: '8%', left: '42%', delay: 1.8 },
+    { letter: 'γ', label: 'Gamma', hz: '30–100 Hz', color: '#6366f1', top: '78%', right: '10%', delay: 2.4 },
   ];
 
   return (
@@ -694,6 +706,32 @@ export default function BrainCanvas() {
         setTooltip(p => ({ ...p, visible: false }));
       }}
     >
+      <style dangerouslySetInnerHTML={{ __html: `
+        @keyframes float-hud {
+          0%, 100% {
+            transform: translate(-50%, -50%) perspective(1000px) rotateY(-8deg) rotateX(4deg) rotateZ(-0.5deg) translateY(0px);
+          }
+          50% {
+            transform: translate(-50%, -50%) perspective(1000px) rotateY(-11deg) rotateX(6deg) rotateZ(-1.5deg) translateY(-8px);
+          }
+        }
+        .animate-float-hud {
+          animation: float-hud 8s ease-in-out infinite;
+        }
+        @keyframes float-badge {
+          0%, 100% { transform: translateY(0px); }
+          50% { transform: translateY(-10px); }
+        }
+        @keyframes glow-pulse {
+          0%, 100% {
+            box-shadow: 0 0 8px var(--glow-color), inset 0 0 4px rgba(255, 255, 255, 0.25);
+          }
+          50% {
+            box-shadow: 0 0 22px var(--glow-color), 0 0 4px var(--glow-color), inset 0 0 6px rgba(255, 255, 255, 0.45);
+          }
+        }
+      ` }} />
+
       {/* EEG Brainwave traces behind the 3D brain */}
       <canvas
         ref={waveCanvasRef}
@@ -701,20 +739,105 @@ export default function BrainCanvas() {
         style={{ zIndex: 0 }}
       />
 
+      {/* Floating HUD IDE window (placed behind the 3D brain zIndex: 5, but above wave canvas zIndex: 0) */}
+      <div 
+        className="absolute top-1/2 left-1/2 w-[85%] max-w-[390px] rounded-xl border border-blue-500/10 dark:border-blue-500/20 bg-white/10 dark:bg-slate-950/30 backdrop-blur-md shadow-[0_20px_50px_rgba(0,0,0,0.1)] dark:shadow-[0_20px_50px_rgba(0,0,0,0.4)] overflow-hidden pointer-events-none transition-all duration-500 animate-float-hud"
+        style={{
+          zIndex: 1,
+        }}
+      >
+        {/* Title bar */}
+        <div className="flex items-center justify-between px-3.5 py-2 bg-gray-100/25 dark:bg-slate-900/40 border-b border-blue-500/10 dark:border-blue-500/25">
+          <div className="flex items-center gap-1.5">
+            <span className="w-2.5 h-2.5 rounded-full bg-red-500/60" />
+            <span className="w-2.5 h-2.5 rounded-full bg-yellow-500/60" />
+            <span className="w-2.5 h-2.5 rounded-full bg-green-500/60" />
+          </div>
+          <div className="text-[9.5px] font-mono font-medium text-gray-500 dark:text-gray-400 flex items-center gap-1.5">
+            <span className="h-1.5 w-1.5 rounded-full bg-blue-500 animate-pulse" />
+            supervised_decoder.py
+          </div>
+          <div className="w-8" />
+        </div>
+        
+        {/* Code editor content */}
+        <div className="p-3 font-mono text-[8px] sm:text-[9.5px] leading-relaxed text-gray-600 dark:text-gray-300">
+          <div className="flex">
+            {/* Gutter / Line Numbers */}
+            <div className="flex flex-col text-right text-gray-400/40 dark:text-gray-500/30 select-none pr-2.5 border-r border-blue-500/10 dark:border-blue-500/20">
+              {Array.from({ length: 19 }, (_, i) => (
+                <span key={i + 1} className="h-[16px] w-4">{i + 1}</span>
+              ))}
+            </div>
+            
+            {/* Code lines */}
+            <div className="flex-grow pl-2.5 overflow-hidden">
+              {[
+                { num: 1, code: <span className="text-gray-400 dark:text-gray-500 italic"># EEG Speech Decoder (EEGFormer Model)</span> },
+                { num: 2, code: <><span className="text-purple-600 dark:text-purple-400 font-medium">class</span> <span className="text-teal-600 dark:text-emerald-400">EEGFormer</span>(<span className="text-teal-600 dark:text-emerald-400">BaseDecoder</span>):</> },
+                { num: 3, code: <><span className="pl-3 text-purple-600 dark:text-purple-400 font-medium">def</span> <span className="text-blue-600 dark:text-blue-400">forward</span>(<span className="text-orange-600 dark:text-orange-400">self</span>, <span className="text-orange-600 dark:text-orange-400">x</span>: <span className="text-teal-600 dark:text-emerald-400">Tensor</span>) -&gt; <span className="text-teal-600 dark:text-emerald-400">Tensor</span>:</> },
+                { num: 4, code: <><span className="pl-6 text-gray-400 dark:text-gray-500 italic"># Spatial attention across channels</span></> },
+                { num: 5, code: <><span className="pl-6 text-orange-600 dark:text-orange-400">x</span> = <span className="text-orange-600 dark:text-orange-400">self</span>.<span className="text-blue-600 dark:text-blue-400">spatial_attn</span>(<span className="text-orange-600 dark:text-orange-400">x</span>)</> },
+                { num: 6, code: <><span className="pl-6"></span></> },
+                { num: 7, code: <><span className="pl-6 text-gray-400 dark:text-gray-500 italic"># Temporal patch embedding</span></> },
+                { num: 8, code: <><span className="pl-6 text-orange-600 dark:text-orange-400">x</span> = <span className="text-orange-600 dark:text-orange-400">self</span>.<span className="text-blue-600 dark:text-blue-400">patch_embed</span>(<span className="text-orange-600 dark:text-orange-400">x</span>)</> },
+                { num: 9, code: <><span className="pl-6"></span></> },
+                { num: 10, code: <><span className="pl-6 text-gray-400 dark:text-gray-500 italic"># Prepend CLS token for pooling</span></> },
+                { num: 11, code: <><span className="pl-6 text-orange-600 dark:text-orange-400">cls</span> = <span className="text-orange-600 dark:text-orange-400">self</span>.<span className="text-orange-600 dark:text-orange-400">cls_token</span>.<span className="text-blue-600 dark:text-blue-400">expand</span>(<span className="text-orange-600 dark:text-orange-400">B</span>, -1, -1)</> },
+                { num: 12, code: <><span className="pl-6 text-orange-600 dark:text-orange-400">x</span> = <span className="text-blue-600 dark:text-blue-400">torch.cat</span>([<span className="text-orange-600 dark:text-orange-400">cls</span>, <span className="text-orange-600 dark:text-orange-400">x</span>], <span className="text-orange-600 dark:text-orange-400">dim</span>=1)</> },
+                { num: 13, code: <><span className="pl-6"></span></> },
+                { num: 14, code: <><span className="pl-6 text-gray-400 dark:text-gray-500 italic"># Transformer Encoder</span></> },
+                { num: 15, code: <><span className="pl-6 text-orange-600 dark:text-orange-400">x</span> = <span className="text-orange-600 dark:text-orange-400">self</span>.<span className="text-blue-600 dark:text-blue-400">pos_enc</span>(<span className="text-orange-600 dark:text-orange-400">x</span>)</> },
+                { num: 16, code: <><span className="pl-6 text-orange-600 dark:text-orange-400">x</span> = <span className="text-orange-600 dark:text-orange-400">self</span>.<span className="text-blue-600 dark:text-blue-400">transformer</span>(<span className="text-orange-600 dark:text-orange-400">x</span>)</> },
+                { num: 17, code: <><span className="pl-6"></span></> },
+                { num: 18, code: <><span className="pl-6 text-gray-400 dark:text-gray-500 italic"># Classify from CLS token</span></> },
+                { num: 19, code: <><span className="pl-6 text-purple-600 dark:text-purple-400 font-medium">return</span> <span className="text-orange-600 dark:text-orange-400">self</span>.<span className="text-blue-600 dark:text-blue-400">head</span>(<span className="text-orange-600 dark:text-orange-400">x</span>[:, 0])</> },
+              ].map((line) => {
+                const isHighlighted = activeLine === line.num;
+                return (
+                  <div 
+                    key={line.num} 
+                    className={`h-[16px] flex items-center transition-all duration-300 w-full ${
+                      isHighlighted 
+                        ? "bg-blue-500/10 dark:bg-blue-500/15 border-l border-blue-500 -ml-2.5 pl-2.5 text-blue-900 dark:text-blue-300 font-semibold" 
+                        : ""
+                    }`}
+                  >
+                    {line.code}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      </div>
+
+
       {/* Greek letter EEG band badges */}
       {waveBadges.map((badge) => (
         <div
           key={badge.letter}
           className="absolute pointer-events-none flex flex-col items-center gap-1 z-10"
-          style={{ top: badge.top, left: badge.left, right: badge.right }}
+          style={{ 
+            top: badge.top, 
+            left: badge.left, 
+            right: badge.right,
+            animation: 'float-badge 5s ease-in-out infinite',
+            animationDelay: `${badge.delay}s`
+          }}
         >
           <div
-            className="flex items-center justify-center h-9 w-9 rounded-full text-white text-lg font-bold shadow-lg"
-            style={{ backgroundColor: badge.color, boxShadow: `0 0 12px ${badge.color}44` }}
+            className="flex items-center justify-center h-9 w-9 rounded-full text-white text-lg font-bold transition-all duration-300"
+            style={{ 
+              backgroundColor: badge.color, 
+              ['--glow-color' as any]: badge.color,
+              animation: 'glow-pulse 3s ease-in-out infinite alternate',
+              animationDelay: `${badge.delay * 0.5}s`
+            }}
           >
             {badge.letter}
           </div>
-          <span className="text-[9px] font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap">
+          <span className="text-[9px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider whitespace-nowrap bg-white/45 dark:bg-slate-950/20 backdrop-blur-[1px] px-1 py-0.5 rounded">
             {badge.hz}
           </span>
         </div>

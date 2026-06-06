@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import { Inter } from 'next/font/google';
+import { Inter, Orbitron } from 'next/font/google';
 import './globals.css';
 
 const inter = Inter({
@@ -7,8 +7,14 @@ const inter = Inter({
   variable: '--font-inter',
 });
 
+const orbitron = Orbitron({
+  subsets: ['latin'],
+  variable: '--font-orbitron',
+  weight: ['400', '500', '600', '700', '800', '900'],
+});
+
 export const metadata: Metadata = {
-  title: 'NeuroPidjar — Reclaiming Voice Through Thought',
+  title: 'Synaptic — Reclaiming Voice Through Thought',
   description:
     "Indonesia's first clinical-grade EEG speech brain-computer interface for stroke rehabilitation.",
 };
@@ -31,7 +37,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           }}
         />
       </head>
-      <body className={`${inter.variable} min-h-screen bg-gray-50 text-gray-700 dark:bg-gray-950 dark:text-gray-200 font-sans antialiased transition-colors duration-200`}>
+      <body className={`${inter.variable} ${orbitron.variable} min-h-screen bg-gray-50 text-gray-700 dark:bg-gray-950 dark:text-gray-200 font-sans antialiased transition-colors duration-200`}>
         {children}
       </body>
     </html>
