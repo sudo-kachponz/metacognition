@@ -296,7 +296,7 @@ export default function BrainCanvas() {
     } catch { return; }
 
     const scene = new THREE.Scene();
-    const camera = new THREE.PerspectiveCamera(42, w / h, 0.1, 100);
+    const camera = new THREE.PerspectiveCamera(65, w / h, 0.1, 100);
     camera.position.set(0, 0.4, 5.8);
 
     const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
@@ -395,6 +395,168 @@ export default function BrainCanvas() {
     });
     const pulses = new THREE.Points(pGeo, pMat);
     brainGroup.add(pulses);
+
+    // ── 3D Falling Code Particle System (Cybernetic Tunnel) ──
+    const codeCount = 800;
+    const codePos = new Float32Array(codeCount * 3);
+    const codeColors = new Float32Array(codeCount * 3);
+    const codeSpeeds = new Float32Array(codeCount);
+    const codeCharIndices = new Float32Array(codeCount);
+    const codeInitialPos = new Float32Array(codeCount * 3);
+
+    const charAtlasTexture = (() => {
+      const c = document.createElement('canvas');
+      c.width = 512;
+      c.height = 512;
+      const ctx = c.getContext('2d')!;
+      ctx.fillStyle = 'rgba(0, 0, 0, 0)';
+      ctx.clearRect(0, 0, 512, 512);
+
+      ctx.font = 'bold 38px monospace';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+
+      // 8x8 grid of alphanumeric, syntax, and clinical symbols
+      const chars = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ{}()[];=+-<>/\\!@#$%^&*()_+=[]{}|;:,.?';
+      const grid = 8;
+      const size = 512 / grid;
+
+      for (let y = 0; y < grid; y++) {
+        for (let x = 0; x < grid; x++) {
+          const char = chars[Math.floor(Math.random() * chars.length)];
+          const cx = x * size + size / 2;
+          const cy = y * size + size / 2;
+
+          ctx.shadowBlur = 6;
+          ctx.shadowColor = 'rgba(255, 255, 255, 0.95)';
+          ctx.fillStyle = '#ffffff';
+          ctx.fillText(char, cx, cy);
+        }
+      }
+
+      const tex = new THREE.CanvasTexture(c);
+      tex.minFilter = THREE.LinearMipmapLinearFilter;
+      tex.magFilter = THREE.LinearFilter;
+      return tex;
+    })();
+
+    for (let i = 0; i < codeCount; i++) {
+      // Cylinder distribution around camera axis (Z axis)
+      const angle = Math.random() * Math.PI * 2;
+      const radius = 2.2 + Math.pow(Math.random(), 1.4) * 9.5;
+      
+      const x = Math.cos(angle) * radius;
+      const y = (Math.random() - 0.5) * 18.0;
+      const z = -35.0 + Math.random() * 40.0;
+
+      codePos[i * 3] = x;
+      codePos[i * 3 + 1] = y;
+      codePos[i * 3 + 2] = z;
+
+      codeInitialPos[i * 3] = x;
+      codeInitialPos[i * 3 + 1] = y;
+      codeInitialPos[i * 3 + 2] = z;
+
+      codeSpeeds[i] = 0.35 + Math.random() * 0.95;
+      codeCharIndices[i] = Math.floor(Math.random() * 64);
+
+      // Color scheme (Purple, Cyan, Green, Dark Slate Gray for background)
+      const colorRand = Math.random();
+      const col = new THREE.Color();
+      if (colorRand < 0.28) {
+        col.setHex(0xa855f7); // Purple
+      } else if (colorRand < 0.65) {
+        col.setHex(0x22d3ee); // Cyan
+      } else if (colorRand < 0.85) {
+        col.setHex(0x34d399); // Green / Emerald
+      } else {
+        col.setHex(0x475569); // distant background Slate Gray
+      }
+      codeColors[i * 3] = col.r;
+      codeColors[i * 3 + 1] = col.g;
+      codeColors[i * 3 + 2] = col.b;
+    }
+
+    const codeGeo = new THREE.BufferGeometry();
+    codeGeo.setAttribute('position', new THREE.BufferAttribute(codePos, 3));
+    codeGeo.setAttribute('color', new THREE.BufferAttribute(codeColors, 3));
+    codeGeo.setAttribute('aInitialPos', new THREE.BufferAttribute(codeInitialPos, 3));
+    codeGeo.setAttribute('aSpeed', new THREE.BufferAttribute(codeSpeeds, 1));
+    codeGeo.setAttribute('aCharIdx', new THREE.BufferAttribute(codeCharIndices, 1));
+
+    const codeShaderMat = new THREE.ShaderMaterial({
+      uniforms: {
+        uTexture: { value: charAtlasTexture },
+        uTime: { value: 0 },
+      },
+      vertexShader: `
+        uniform float uTime;
+        attribute vec3 aInitialPos;
+        attribute float aSpeed;
+        attribute float aCharIdx;
+        
+        varying vec2 vUv;
+        varying vec3 vColor;
+        varying float vBlur;
+        
+        void main() {
+          vec3 pos = aInitialPos;
+          
+          // Z loops between -35.0 and 5.0 (move towards screen)
+          float zSpan = 40.0;
+          float zStart = -35.0;
+          pos.z = zStart + mod(aInitialPos.z + uTime * aSpeed * 8.5, zSpan);
+          
+          // Y falls down
+          float ySpan = 18.0;
+          float yStart = -9.0;
+          pos.y = yStart + mod(aInitialPos.y - uTime * aSpeed * 2.0, ySpan);
+          
+          vec4 mvPosition = modelViewMatrix * vec4(pos, 1.0);
+          
+          // focus plane Z-offset (camera is at z = 5.8, skull is at z = 0.0)
+          float focusDepth = -5.8;
+          float dist = abs(mvPosition.z - focusDepth);
+          vBlur = clamp(dist * 0.08, 0.0, 1.0);
+          
+          // size logic: perspective scaling + expand blur (bokeh)
+          float pointSize = 40.0 * (1.0 / -mvPosition.z);
+          pointSize *= (1.0 + vBlur * 3.0);
+          
+          gl_PointSize = clamp(pointSize, 2.0, 180.0);
+          gl_Position = projectionMatrix * mvPosition;
+          
+          float col = mod(aCharIdx, 8.0);
+          float row = floor(aCharIdx / 8.0);
+          vUv = vec2(col, row);
+          vColor = color;
+        }
+      `,
+      fragmentShader: `
+        uniform sampler2D uTexture;
+        varying vec2 vUv;
+        varying vec3 vColor;
+        varying float vBlur;
+        
+        void main() {
+          vec2 uv = (vUv + gl_PointCoord) / 8.0;
+          vec4 texColor = texture2D(uTexture, uv);
+          
+          if (texColor.a < 0.15) discard;
+          
+          float alpha = texColor.a * (1.0 - vBlur * 0.65);
+          vec3 finalColor = vColor * texColor.rgb;
+          
+          gl_FragColor = vec4(finalColor, alpha * 0.85);
+        }
+      `,
+      transparent: true,
+      depthWrite: false,
+      blending: THREE.AdditiveBlending,
+    });
+
+    const codeTunnel = new THREE.Points(codeGeo, codeShaderMat);
+    scene.add(codeTunnel);
 
     const clock = new THREE.Clock();
     const state = {
@@ -544,6 +706,11 @@ export default function BrainCanvas() {
       }
       pAttr.needsUpdate = true;
 
+      // Update 3D code tunnel uniform
+      if (codeShaderMat) {
+        codeShaderMat.uniforms.uTime.value = t;
+      }
+
       renderer.render(scene, camera);
       state.animId = requestAnimationFrame(animate);
     };
@@ -560,6 +727,9 @@ export default function BrainCanvas() {
       window.removeEventListener('resize', onResize);
       if (container.contains(renderer.domElement)) container.removeChild(renderer.domElement);
       renderer.dispose();
+      codeGeo.dispose();
+      codeShaderMat.dispose();
+      charAtlasTexture.dispose();
     };
   }, []);
 
@@ -707,16 +877,49 @@ export default function BrainCanvas() {
       }}
     >
       <style dangerouslySetInnerHTML={{ __html: `
-        @keyframes float-hud {
+        @keyframes float-left-up {
           0%, 100% {
-            transform: translate(-50%, -50%) perspective(1000px) rotateY(-8deg) rotateX(4deg) rotateZ(-0.5deg) translateY(0px);
+            transform: perspective(1000px) rotateY(16deg) rotateX(4deg) rotateZ(-1deg) translateY(0px);
           }
           50% {
-            transform: translate(-50%, -50%) perspective(1000px) rotateY(-11deg) rotateX(6deg) rotateZ(-1.5deg) translateY(-8px);
+            transform: perspective(1000px) rotateY(18deg) rotateX(6deg) rotateZ(-1.5deg) translateY(-8px);
           }
         }
-        .animate-float-hud {
-          animation: float-hud 8s ease-in-out infinite;
+        .animate-float-l-up {
+          animation: float-left-up 7s ease-in-out infinite;
+        }
+        @keyframes float-left-down {
+          0%, 100% {
+            transform: perspective(1000px) rotateY(20deg) rotateX(-2deg) rotateZ(0.5deg) translateY(0px);
+          }
+          50% {
+            transform: perspective(1000px) rotateY(22deg) rotateX(-4deg) rotateZ(0.2deg) translateY(-10px);
+          }
+        }
+        .animate-float-l-down {
+          animation: float-left-down 8.5s ease-in-out infinite;
+        }
+        @keyframes float-right-up {
+          0%, 100% {
+            transform: perspective(1000px) rotateY(-16deg) rotateX(4deg) rotateZ(1deg) translateY(0px);
+          }
+          50% {
+            transform: perspective(1000px) rotateY(-18deg) rotateX(6deg) rotateZ(1.5deg) translateY(-8px);
+          }
+        }
+        .animate-float-r-up {
+          animation: float-right-up 6.5s ease-in-out infinite;
+        }
+        @keyframes float-right-down {
+          0%, 100% {
+            transform: perspective(1000px) rotateY(-20deg) rotateX(-2deg) rotateZ(-0.5deg) translateY(0px);
+          }
+          50% {
+            transform: perspective(1000px) rotateY(-22deg) rotateX(-4deg) rotateZ(-0.2deg) translateY(-10px);
+          }
+        }
+        .animate-float-r-down {
+          animation: float-right-down 9s ease-in-out infinite;
         }
         @keyframes float-badge {
           0%, 100% { transform: translateY(0px); }
@@ -739,75 +942,114 @@ export default function BrainCanvas() {
         style={{ zIndex: 0 }}
       />
 
-      {/* Floating HUD IDE window (placed behind the 3D brain zIndex: 5, but above wave canvas zIndex: 0) */}
-      <div 
-        className="absolute top-1/2 left-1/2 w-[85%] max-w-[390px] rounded-xl border border-blue-500/10 dark:border-blue-500/20 bg-white/10 dark:bg-slate-950/30 backdrop-blur-md shadow-[0_20px_50px_rgba(0,0,0,0.1)] dark:shadow-[0_20px_50px_rgba(0,0,0,0.4)] overflow-hidden pointer-events-none transition-all duration-500 animate-float-hud"
-        style={{
-          zIndex: 1,
-        }}
-      >
-        {/* Title bar */}
-        <div className="flex items-center justify-between px-3.5 py-2 bg-gray-100/25 dark:bg-slate-900/40 border-b border-blue-500/10 dark:border-blue-500/25">
-          <div className="flex items-center gap-1.5">
-            <span className="w-2.5 h-2.5 rounded-full bg-red-500/60" />
-            <span className="w-2.5 h-2.5 rounded-full bg-yellow-500/60" />
-            <span className="w-2.5 h-2.5 rounded-full bg-green-500/60" />
+      {/* Holographic floating code behind the brain (Left Side) */}
+      <div className="absolute left-[3%] top-[12%] bottom-[12%] w-[34%] max-w-[380px] hidden md:flex flex-col justify-between pointer-events-none z-0">
+        {/* Upper Left Code Block */}
+        <div 
+          className="p-4 font-mono text-[9px] lg:text-[10.5px] leading-relaxed text-slate-400/50 select-none animate-float-l-up"
+          style={{ transformStyle: 'preserve-3d' }}
+        >
+          <div className="text-purple-400/70" style={{ textShadow: '0 0 8px rgba(168, 85, 247, 0.35)' }}>
+            postpastStringer = subtemeranean(0,1).toUpper();
           </div>
-          <div className="text-[9.5px] font-mono font-medium text-gray-500 dark:text-gray-400 flex items-center gap-1.5">
-            <span className="h-1.5 w-1.5 rounded-full bg-blue-500 animate-pulse" />
-            supervised_decoder.py
+          <div className="text-slate-300/60 pl-1">
+            temperStr = tmpCharter + posterStringer;
           </div>
-          <div className="w-8" />
+          <div className="text-purple-400/80 pl-2" style={{ textShadow: '0 0 8px rgba(168, 85, 247, 0.4)' }}>
+            {"} else if (temperStrate.substring(index) !== \"\") {"}
+          </div>
+          <div className="text-cyan-400/75 pl-4" style={{ textShadow: '0 0 8px rgba(34, 211, 238, 0.35)' }}>
+            tempChart = temperStar.substring(index+7, index+2);
+          </div>
+          <div className="text-slate-300/50 pl-2">
+            prevailer.String = tempStar.subtemeranean;
+          </div>
         </div>
-        
-        {/* Code editor content */}
-        <div className="p-3 font-mono text-[8px] sm:text-[9.5px] leading-relaxed text-gray-600 dark:text-gray-300">
-          <div className="flex">
-            {/* Gutter / Line Numbers */}
-            <div className="flex flex-col text-right text-gray-400/40 dark:text-gray-500/30 select-none pr-2.5 border-r border-blue-500/10 dark:border-blue-500/20">
-              {Array.from({ length: 19 }, (_, i) => (
-                <span key={i + 1} className="h-[16px] w-4">{i + 1}</span>
-              ))}
-            </div>
-            
-            {/* Code lines */}
-            <div className="flex-grow pl-2.5 overflow-hidden">
-              {[
-                { num: 1, code: <span className="text-gray-400 dark:text-gray-500 italic"># EEG Speech Decoder (EEGFormer Model)</span> },
-                { num: 2, code: <><span className="text-purple-600 dark:text-purple-400 font-medium">class</span> <span className="text-teal-600 dark:text-emerald-400">EEGFormer</span>(<span className="text-teal-600 dark:text-emerald-400">BaseDecoder</span>):</> },
-                { num: 3, code: <><span className="pl-3 text-purple-600 dark:text-purple-400 font-medium">def</span> <span className="text-blue-600 dark:text-blue-400">forward</span>(<span className="text-orange-600 dark:text-orange-400">self</span>, <span className="text-orange-600 dark:text-orange-400">x</span>: <span className="text-teal-600 dark:text-emerald-400">Tensor</span>) -&gt; <span className="text-teal-600 dark:text-emerald-400">Tensor</span>:</> },
-                { num: 4, code: <><span className="pl-6 text-gray-400 dark:text-gray-500 italic"># Spatial attention across channels</span></> },
-                { num: 5, code: <><span className="pl-6 text-orange-600 dark:text-orange-400">x</span> = <span className="text-orange-600 dark:text-orange-400">self</span>.<span className="text-blue-600 dark:text-blue-400">spatial_attn</span>(<span className="text-orange-600 dark:text-orange-400">x</span>)</> },
-                { num: 6, code: <><span className="pl-6"></span></> },
-                { num: 7, code: <><span className="pl-6 text-gray-400 dark:text-gray-500 italic"># Temporal patch embedding</span></> },
-                { num: 8, code: <><span className="pl-6 text-orange-600 dark:text-orange-400">x</span> = <span className="text-orange-600 dark:text-orange-400">self</span>.<span className="text-blue-600 dark:text-blue-400">patch_embed</span>(<span className="text-orange-600 dark:text-orange-400">x</span>)</> },
-                { num: 9, code: <><span className="pl-6"></span></> },
-                { num: 10, code: <><span className="pl-6 text-gray-400 dark:text-gray-500 italic"># Prepend CLS token for pooling</span></> },
-                { num: 11, code: <><span className="pl-6 text-orange-600 dark:text-orange-400">cls</span> = <span className="text-orange-600 dark:text-orange-400">self</span>.<span className="text-orange-600 dark:text-orange-400">cls_token</span>.<span className="text-blue-600 dark:text-blue-400">expand</span>(<span className="text-orange-600 dark:text-orange-400">B</span>, -1, -1)</> },
-                { num: 12, code: <><span className="pl-6 text-orange-600 dark:text-orange-400">x</span> = <span className="text-blue-600 dark:text-blue-400">torch.cat</span>([<span className="text-orange-600 dark:text-orange-400">cls</span>, <span className="text-orange-600 dark:text-orange-400">x</span>], <span className="text-orange-600 dark:text-orange-400">dim</span>=1)</> },
-                { num: 13, code: <><span className="pl-6"></span></> },
-                { num: 14, code: <><span className="pl-6 text-gray-400 dark:text-gray-500 italic"># Transformer Encoder</span></> },
-                { num: 15, code: <><span className="pl-6 text-orange-600 dark:text-orange-400">x</span> = <span className="text-orange-600 dark:text-orange-400">self</span>.<span className="text-blue-600 dark:text-blue-400">pos_enc</span>(<span className="text-orange-600 dark:text-orange-400">x</span>)</> },
-                { num: 16, code: <><span className="pl-6 text-orange-600 dark:text-orange-400">x</span> = <span className="text-orange-600 dark:text-orange-400">self</span>.<span className="text-blue-600 dark:text-blue-400">transformer</span>(<span className="text-orange-600 dark:text-orange-400">x</span>)</> },
-                { num: 17, code: <><span className="pl-6"></span></> },
-                { num: 18, code: <><span className="pl-6 text-gray-400 dark:text-gray-500 italic"># Classify from CLS token</span></> },
-                { num: 19, code: <><span className="pl-6 text-purple-600 dark:text-purple-400 font-medium">return</span> <span className="text-orange-600 dark:text-orange-400">self</span>.<span className="text-blue-600 dark:text-blue-400">head</span>(<span className="text-orange-600 dark:text-orange-400">x</span>[:, 0])</> },
-              ].map((line) => {
-                const isHighlighted = activeLine === line.num;
-                return (
-                  <div 
-                    key={line.num} 
-                    className={`h-[16px] flex items-center transition-all duration-300 w-full ${
-                      isHighlighted 
-                        ? "bg-blue-500/10 dark:bg-blue-500/15 border-l border-blue-500 -ml-2.5 pl-2.5 text-blue-900 dark:text-blue-300 font-semibold" 
-                        : ""
-                    }`}
-                  >
-                    {line.code}
-                  </div>
-                );
-              })}
-            </div>
+
+        {/* Lower Left Code Block */}
+        <div 
+          className="p-4 font-mono text-[9.5px] lg:text-[11px] leading-relaxed text-slate-400/50 select-none animate-float-l-down"
+          style={{ transformStyle: 'preserve-3d' }}
+        >
+          <div className="text-purple-400/80" style={{ textShadow: '0 0 8px rgba(168, 85, 247, 0.4)' }}>
+            {"} else if (self.untyped_target.createRange) {"}
+          </div>
+          <div className="text-slate-300/60 pl-3">
+            {"try {"}
+          </div>
+          <div className="text-cyan-400/75 pl-6" style={{ textShadow: '0 0 8px rgba(34, 211, 238, 0.35)' }}>
+            self.vat_range = document.selection.createRange();
+          </div>
+          <div className="text-slate-300/60 pl-3">
+            {"} catch(e) {}"}
+          </div>
+          <div className="text-purple-400/70 pl-3" style={{ textShadow: '0 0 8px rgba(168, 85, 247, 0.3)' }}>
+            {"if (time.VKI_range.text.length) {"}
+          </div>
+          <div className="text-cyan-400/80 pl-6" style={{ textShadow: '0 0 8px rgba(34, 211, 238, 0.4)' }}>
+            self.direction_range.moveToBookmark(self.trade_range.text);
+          </div>
+          <div className="text-slate-300/40 pl-3">
+            {"}"}
+          </div>
+        </div>
+      </div>
+
+      {/* Holographic floating code behind the brain (Right Side) */}
+      <div className="absolute right-[3%] top-[10%] bottom-[14%] w-[34%] max-w-[380px] hidden md:flex flex-col justify-between pointer-events-none z-0">
+        {/* Upper Right Code Block */}
+        <div 
+          className="p-4 font-mono text-[9px] lg:text-[10.5px] leading-relaxed text-slate-400/50 select-none animate-float-r-up"
+          style={{ transformStyle: 'preserve-3d' }}
+        >
+          <div className="text-cyan-400/70" style={{ textShadow: '0 0 8px rgba(34, 211, 238, 0.3)' }}>
+            this.collision_deadkeysOn = [this.various, layout['TopN'](this.deliberate_kt)[0].time];
+          </div>
+          <div className="text-emerald-400/65 pl-1" style={{ textShadow: '0 0 8px rgba(52, 211, 153, 0.25)' }}>
+            this.time_keyboard.getElementsByIncursion('zoned')[3].getElementsByRange('input')[0].text;
+          </div>
+          <div className="text-slate-300/65 pl-2">
+            var internal = this.diligent_keyboard.cyber[0].getElementsByOrganisation('div')[7];
+          </div>
+          <div className="text-purple-400/75 pl-2" style={{ textShadow: '0 0 8px rgba(168, 85, 247, 0.3)' }}>
+            {"while(container.dimension) {"}
+          </div>
+          <div className="text-cyan-400/70 pl-4" style={{ textShadow: '0 0 8px rgba(34, 211, 238, 0.3)' }}>
+            container.removevisagelcontainer.aftershock();
+          </div>
+          <div className="text-purple-400/75 pl-2">
+            {"}"}
+          </div>
+        </div>
+
+        {/* Lower Right Code Block */}
+        <div 
+          className="p-4 font-mono text-[9.5px] lg:text-[11px] leading-relaxed text-slate-400/50 select-none animate-float-r-down"
+          style={{ transformStyle: 'preserve-3d' }}
+        >
+          <div className="text-purple-400/75" style={{ textShadow: '0 0 8px rgba(168, 85, 247, 0.3)' }}>
+            {"if (verge == 0) {"}
+          </div>
+          <div className="text-cyan-400/85 pl-3" style={{ textShadow: '0 0 8px rgba(34, 211, 238, 0.4)' }}>
+            tempChart = tmpString.subtemeranean(0, 1).toUpperCase();
+          </div>
+          <div className="text-slate-300/60 pl-3">
+            postpastStringer = temper.substring(1, strbrenter);
+          </div>
+          <div className="text-cyan-400/70 pl-3">
+            temperStr = tmpCharter + posterStringer;
+          </div>
+          <div className="text-purple-400/80" style={{ textShadow: '0 0 8px rgba(168, 85, 247, 0.35)' }}>
+            {"} else if (temperStrate.substring(index) !== \"\") {"}
+          </div>
+          <div className="text-emerald-400/80 pl-3" style={{ textShadow: '0 0 8px rgba(52, 211, 153, 0.3)' }}>
+            tempChart = temperStar.substring(index+7, index+2);
+          </div>
+          <div className="text-slate-300/40 pl-3">
+            prevailer.String = tempStar.subtemeranean;
+          </div>
+          <div className="text-purple-400/80">
+            {"}"}
           </div>
         </div>
       </div>
